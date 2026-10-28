@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Plan Contable General Empresarial (PCGE 2026)</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; margin: 2rem; background: #f5f6f8; color: #222; }
+    h1 { font-size: 1.4rem; }
+    form { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    input[type=text] { flex: 1; min-width: 220px; padding: .5rem; font-size: 1rem; }
+    select, button { padding: .5rem; font-size: 1rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { border: 1px solid #ddd; padding: .4rem .6rem; text-align: left; font-size: .9rem; }
+    th { background: #2c3e50; color: #fff; position: sticky; top: 0; }
+    tr.nivel-2 { background: #e8edf3; font-weight: bold; }
+    tr.nivel-3 { background: #f4f7fa; }
+    .meta { color: #555; font-size: .85rem; margin-bottom: .5rem; }
+    .wrap { max-height: 75vh; overflow: auto; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>Plan Contable General Empresarial &mdash; PCGE 2026 (Peru)</h1>
+  <form id="form" method="get" onsubmit="return false;">
+    <input type="text" id="q" name="q" placeholder="Buscar por descripcion o codigo (ej: ventas, caja, 70)" value="{{ q }}" autofocus autocomplete="off">
+    <select id="elemento" name="elemento">
+      <option value="">Todos los elementos</option>
+      {% for num, nombre in elementos %}
+        <option value="{{ num }}" {% if elemento_sel == num|string %}selected{% endif %}>
+          {{ num }} - {{ nombre }}
+        </option>
+      {% endfor %}
+    </select>
+    <a href="/" style="align-self:center;">Limpiar</a>
+  </form>
+  <div class="meta" id="meta">{{ total }} resultado(s)</div>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr><th>Codigo</th><th>Descripcion</th><th>Nivel</th><th>Elemento</th></tr>
+      </thead>
+      <tbody id="tbody">
+        {% for r in resultados %}
+        <tr class="nivel-{{ r['nivel'] }}">
+          <td>{{ r['codigo'] }}</td>
+          <td>{{ r['descripcion'] }}</td>
+          <td>{{ r['nivel'] }}</td>
+          <td>{{ r['elemento'] }} - {{ r['elemento_nombre'] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">Sin resultados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <script>
+    const qInput = document.getElementById('q');
+    const elementoSelect = document.getElementById('elemento');
+    const tbody = document.getElementById('tbody');
+    const meta = document.getElementById('meta');
+    let timer = null;
+
+    function escapeHtml(s) {
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function buscar() {
+      const q = qInput.value.trim();
+      const elemento = elementoSelect.value;
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (elemento) params.set('elemento', elemento);
+
+      fetch('/buscar?' + params.toString())
+        .then(r => r.json())
+        .then(data => {
+          meta.textContent = data.total + ' resultado(s)';
+          if (data.resultados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4">Sin resultados.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.resultados.map(r => (
+            '<tr class="nivel-' + r.nivel + '">' +
+            '<td>' + escapeHtml(r.codigo) + '</td>' +
+            '<td>' + escapeHtml(r.descripcion) + '</td>' +
+            '<td>' + r.nivel + '</td>' +
+            '<td>' + r.elemento + ' - ' + escapeHtml(r.elemento_nombre) + '</td>' +
+            '</tr>'
+          )).join('');
+        });
+
+      const url = new URL(window.location);
+      if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+      if (elemento) url.searchParams.set('elemento', elemento); else url.searchParams.delete('elemento');
+      history.replaceState(null, '', url);
+    }
+
+    qInput.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(buscar, 200);
+    });
+    elementoSelect.addEventListener('change', buscar);
+  </script>
+</body>
+</html>
